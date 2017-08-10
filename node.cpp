@@ -9,18 +9,6 @@
 #include "main.h"
 #include "node.h"
 
-#define PAGE_SIZE (64 * 1024)
-
-struct PAGE {
-    union {
-        char data[PAGE_SIZE];
-        struct {
-            unsigned int type;
-            PAGE        *next;
-        } head;        
-    };
-};
-
 struct TYPE {
    ULONG  size;
    ULONG  node;
@@ -48,9 +36,9 @@ TYPE types[NT_LAST] = {
     { NODESIZE(hash) },
 };
 
-NODE *nodeGet(unsigned int type)
+NODE *nodeGet(int type)
 {
-    if (type >= NT_LAST)
+    if ((unsigned)type >= NT_LAST)
         return 0;
 
     types[type].used += 1;

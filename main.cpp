@@ -74,110 +74,8 @@ unsigned int Hash(unsigned char data[]) {
     return hash;
 }
 
-unsigned int HashFast (const unsigned char * data, unsigned int len) {
-unsigned int hash = len, tmp;
-unsigned int rem;
-
-    rem = len & 3;
-    len >>= 2;
-
-    /* Main loop */
-    for (;len > 0; len--) {
-        hash  += *(unsigned short *)(data);
-        tmp    = ((*(unsigned short *)(data+2)) << 11) ^ hash;
-        hash   = (hash << 16) ^ tmp;
-        data  += 2*sizeof (unsigned short);
-        hash  += hash >> 11;
-    }
-
-    /* Handle end cases */
-    switch (rem) {
-        case 3: hash += *(unsigned short *)(data);
-                hash ^= hash << 16;
-                hash ^= data[sizeof(unsigned short)] << 18;
-                hash += hash >> 11;
-                break;
-        case 2: hash += *(unsigned short *)(data);
-                hash ^= hash << 11;
-                hash += hash >> 17;
-                break;
-        case 1: hash += *data;
-                hash ^= hash << 10;
-                hash += hash >> 1;
-    }
-
-    /* Force "avalanching" of final 127 bits */
-    hash ^= hash << 3;
-    hash += hash >> 5;
-    hash ^= hash << 4;
-    hash += hash >> 17;
-    hash ^= hash << 25;
-    hash += hash >> 6;
-
-    return hash;
-}
-
-unsigned int HashPerl(unsigned char k[], unsigned int length, unsigned int initval = 0)
-{
-  #define mix(a,b,c) \
-  { \
-    a -= b; a -= c; a ^= (c>>13); \
-    b -= c; b -= a; b ^= (a<<8); \
-    c -= a; c -= b; c ^= (b>>13); \
-    a -= b; a -= c; a ^= (c>>12);  \
-    b -= c; b -= a; b ^= (a<<16); \
-    c -= a; c -= b; c ^= (b>>5); \
-    a -= b; a -= c; a ^= (c>>3);  \
-    b -= c; b -= a; b ^= (a<<10); \
-    c -= a; c -= b; c ^= (b>>15); \
-  }
-
-  typedef unsigned int  ub4;
-  typedef unsigned char ub1;
-
-  register ub4 a,b,c,len;
-
-  /* Set up the internal state */
-  len = length;
-  a = b = 0x9e3779b9;  /* the golden ratio; an arbitrary value */
-  c = initval;         /* the previous hash value */
-
-  /*---------------------------------------- handle most of the key */
-  while (len >= 12)
-  {
-    a += (k[0] +((ub4)k[1]<<8) +((ub4)k[2]<<16) +((ub4)k[3]<<24));
-    b += (k[4] +((ub4)k[5]<<8) +((ub4)k[6]<<16) +((ub4)k[7]<<24));
-    c += (k[8] +((ub4)k[9]<<8) +((ub4)k[10]<<16)+((ub4)k[11]<<24));
-    mix(a,b,c);
-    k += 12; len -= 12;
-  }
-
-  /*------------------------------------- handle the last 11 bytes */
-  c += length;
-  switch(len)              /* all the case statements fall through */
-  {
-  case 11: c+=((ub4)k[10]<<24);
-  case 10: c+=((ub4)k[9]<<16);
-  case 9 : c+=((ub4)k[8]<<8);
-  /* the first byte of c is reserved for the length */
-  case 8 : b+=((ub4)k[7]<<24);
-  case 7 : b+=((ub4)k[6]<<16);
-  case 6 : b+=((ub4)k[5]<<8);
-  case 5 : b+=k[4];
-  case 4 : a+=((ub4)k[3]<<24);
-  case 3 : a+=((ub4)k[2]<<16);
-  case 2 : a+=((ub4)k[1]<<8);
-  case 1 : a+=k[0];
-  /* case 0: nothing left to add */
-  }
-  mix(a,b,c);
-  /*-------------------------------------------- report the result */
-  return c;
-}
-
 NODE *make_name(const VTEXT name)
 { 
-//    unsigned int hash = HashFast((unsigned char *)name, vTextLength(name));
     unsigned int hash = Hash((unsigned char *)name);
 
     NODE **make = &n_names;
@@ -188,8 +86,7 @@ NODE *make_name(const VTEXT name)
       if (node == NIL) break;
 
       if (node->type(NT_HASH)) {
-        make = &node->hash.nodes[hash & 63];//>> (32-8)];
-        //make = &node->hash.nodes[hash >> (32-6)];
+        make = &node->hash.nodes[hash & 63];
         hash = (hash >> (32-8)) | (hash << 8);
       }
       else {
@@ -250,7 +147,6 @@ NODE *make_fail(VTEXT name, VTEXT text, NODE *next)
 }
 
 //----------------------------------------------------------------
-
 static VNAME  readBuffer;
 static VCHAR *readPointer = NULL;
 
@@ -535,7 +431,6 @@ NODE *print(NODE *n)
 }
 
 //----------------------------------------------------------------
-
 void make_bind(NODE *name, NODE *data, NODE *binds)
 {
     NODE *node = make_node(NT_BIND);
@@ -654,7 +549,6 @@ NODE *evaluate(NODE *n)
 }
 
 //----------------------------------------------------------------
-
 NODE *f_exit(int argc, NODE *argv[])
 {
     argc; argv;
@@ -762,7 +656,6 @@ NODE *f_if(int argc, NODE *argv[])
 }
 
 //----------------------------------------------------------------
-
 NODE *f_cons(int argc, NODE *argv[])
 {
     if (argc < 2) return (make_fail("bad args", "cons", NIL));
@@ -889,75 +782,7 @@ NODE *f_getn(int argc, NODE* argv[])
     return argv[0]->hash.nodes[argv[1]->math.data];
 }
 
-typedef unsigned int uint32;
-typedef signed int int32;
-
-enum {
-    op_move,
-    op_jump,
-    op_jmpt,
-    op_jmpf,
-    op_call,
-    op_exit
-};
-
-union instruction {
-    uint32 ifull;
-    struct {
-        uint32 i:6;
-        uint32 a:8;
-        uint32 b:9;
-        uint32 c:9;
-    } iabc;
-    struct {
-        uint32 i:6;
-        uint32 a:8;
-        uint32 u:18;
-    } iau;
-    struct {
-        uint32 i:6;
-        uint32 a:8;
-        int32  s:18;
-    } ias;
-};
-
-struct jit {
-    NODE*  konstants;
-    uint32 code[256];
-};
-
-struct virtual_machine {
-    NODE*    symbols;
-    uint32*  pc;
-    NODE**   rp;
-    NODE**   kp;
-    NODE*    stack[124];
-    uint32** sp;
-    uint32*  ret[124];
-};
-
-#define rk_(i) ((i >= 256) ? vm.kp[i] : vm.rp[i])
-
-void vm_execute (virtual_machine& vm) {
-    instruction ir = { *vm.pc++ };
-    switch (ir.iabc.i) {
-    case op_move: vm.rp[ir.iabc.a] = rk_(ir.iabc.b); break;
-    case op_jump: vm.pc += ir.ias.s; break;
-    case op_jmpt: if (vm.rp[ir.ias.a] != 0) vm.pc += ir.ias.s; break;
-    case op_jmpf: if (vm.rp[ir.ias.a] == 0) vm.pc += ir.ias.s; break;
-    case op_call:
-    case op_exit: 
-        vm.pc = *vm.sp++; 
-        //vm.rp += 
-            break;
-        
-
-    default: __debugbreak(); break;
-    }
-}
-
 //----------------------------------------------------------------
-
 void make_calls(void)
 {
     make_call("cons",   f_cons,     NT_CALL);
