@@ -6,9 +6,19 @@
 
 #define NIL ((NODE *)0)
 
+#define PAGE_SIZE (64 * 1024)
+
+union PAGE {
+    char data[PAGE_SIZE];
+    struct {
+        unsigned int type;
+        PAGE        *next;
+    } head;
+};
+
 struct NODE {
-    unsigned int type() const { return (*(unsigned int *)((long long)this & ~0x0ffff)); }
-    //unsigned int type() const { return (*(unsigned int *)((char *)this - ((int)this & 0x0ffff))); }
+
+    unsigned int type() const { return ((const PAGE*)0 + ((const PAGE*)this - (const PAGE*)0))->head.type; }
     bool type(int t) { return this != NIL && type() == t; }
 
     union {
