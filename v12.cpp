@@ -74,21 +74,15 @@ VCHAR *vTextFromNumberD(VTEXT text, int number)
 {
     VCHAR dst[16];
     VCHAR *c = &dst[16];
-    int negative = 0;
-
-    if (number < 0) { 
-        negative = 1; 
-        number = -number; 
-    }
-
+    unsigned int n = number < 0 ? -number : number;
+    
     *--c = 0;
 
-    if (number == 0) *--c ='0';
-    else while (number != 0) {
-        *--c = '0' + (VCHAR)(number % 10);
-        number /= 10;
-    }
-    if (negative) *--c = '-';
+    do *--c = '0' + (VCHAR)(n % 10);
+    while (n /= 10);
+
+    if (number < 0) 
+        *--c = '-';
 
     vTextCopy(text, c);
     return (text);
